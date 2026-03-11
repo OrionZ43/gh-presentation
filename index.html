@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GitHub — Код — это культура</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,700;1,400&family=Fragment+Mono:ital@0;1&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --ink:#07070d;
+  --acid:#c8ff00;
+  --acid2:#00ffc8;
+  --blood:#ff2d55;
+  --mars:#ff6b35;
+  --gold:#ffd166;
+  --paper:#f0ebe0;
+  --chrome:#ccc5b8;
+  --dim:#52504a;
+  --card:#0f0f18;
+  --border:#1c1c28;
+}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--ink);}
+body{font-family:'DM Sans',sans-serif;cursor:none;}
+
+/* CURSOR */
+#cur{position:fixed;width:14px;height:14px;background:var(--acid);border-radius:50%;pointer-events:none;z-index:9999;mix-blend-mode:difference;transform:translate(-50%,-50%);}
+#cur-trail{position:fixed;width:52px;height:52px;border:1px solid rgba(200,255,0,.25);border-radius:50%;pointer-events:none;z-index:9998;transform:translate(-50%,-50%);transition:left .07s,top .07s;}
+
+/* CANVAS */
+#bg{position:fixed;inset:0;z-index:0;}
+
+/* GRAIN */
+.grain{position:fixed;inset:0;z-index:1;pointer-events:none;opacity:.032;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size:180px;}
+
+/* SLIDES */
+.deck{position:fixed;inset:0;z-index:10;}
+.slide{
+  position:absolute;inset:0;
+  display:flex;flex-direction:column;justify-content:center;align-items:flex-start;
+  padding:6vh 8vw 9vh;
+  opacity:0;pointer-events:none;
+  transition:opacity .65s cubic-bezier(.16,1,.3,1),transform .65s cubic-bezier(.16,1,.3,1);
+  transform:translateY(3vh);
+}
+.slide.active{opacity:1;pointer-events:all;transform:translateY(0);}
+.slide.out{opacity:0;transform:translateY(-3vh);transition-duration:.35s;}
+.slide.cx{align-items:center;justify-content:center;text-align:center;}
+
+/* HUD */
+#bar-top{position:fixed;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--blood),var(--acid),var(--acid2));z-index:200;}
+#bar-bot{position:fixed;bottom:0;left:0;height:3px;background:var(--acid);z-index:200;transition:width .6s cubic-bezier(.16,1,.3,1);box-shadow:0 0 28px var(--acid),0 0 56px rgba(200,255,0,.25);}
+#snum{position:fixed;top:22px;right:44px;z-index:200;font-family:'Fragment Mono',monospace;font-size:clamp(11px,1vw,15px);color:var(--dim);letter-spacing:3px;}
+.flash{position:fixed;inset:0;background:var(--acid);z-index:500;opacity:0;pointer-events:none;transition:opacity .08s;}
+.flash.on{opacity:.05;}
+
+/* NAV */
+.nav{position:fixed;bottom:20px;right:44px;z-index:200;display:flex;gap:10px;}
+.nb{font-family:'Fragment Mono',monospace;font-size:clamp(10px,.9vw,14px);color:var(--dim);border:1px solid var(--border);padding:6px 18px;border-radius:4px;cursor:pointer;background:rgba(7,7,13,.85);transition:all .2s;backdrop-filter:blur(12px);}
+.nb:hover{border-color:var(--acid);color:var(--acid);}
+
+/* TYPOGRAPHY */
+.eyebrow{
+  font-family:'Fragment Mono',monospace;
+  font-size:clamp(11px,1vw,16px);
+  color:var(--acid);letter-spacing:4px;text-transform:uppercase;
+  display:flex;align-items:center;gap:16px;
+  margin-bottom:clamp(14px,2.2vh,32px);
+}
+.eyebrow::before{content:'';width:32px;height:1px;background:var(--acid);}
+.eyebrow.cx{justify-content:center;}
+.eyebrow.cx::before{display:none;}
+
+.G{font-family:'Bebas Neue',sans-serif;font-size:clamp(72px,13vw,200px);line-height:.88;letter-spacing:-1px;color:var(--paper);}
+.G .o{-webkit-text-stroke:1px var(--paper);color:transparent;}
+.G .a{color:var(--acid);}
+.G .b{color:var(--blood);}
+.G .m{color:var(--mars);}
+.G .d{color:var(--dim);}
+.G .g{color:var(--gold);}
+
+.body{font-size:clamp(17px,2vw,30px);color:var(--chrome);line-height:1.5;max-width:min(820px,72vw);font-weight:300;margin-top:clamp(14px,2.2vh,36px);}
+.small{font-size:clamp(13px,1.2vw,19px);color:var(--dim);line-height:1.6;max-width:min(700px,64vw);}
+.rule{width:56px;height:2px;background:var(--acid);margin:clamp(10px,1.8vh,24px) 0;}
+
+/* REVEAL */
+.r{opacity:0;transform:translateY(26px);transition:opacity .6s cubic-bezier(.16,1,.3,1),transform .6s cubic-bezier(.16,1,.3,1);}
+.slide.active .r{opacity:1;transform:none;}
+.d0{transition-delay:.04s!important;}.d1{transition-delay:.16s!important;}.d2{transition-delay:.30s!important;}.d3{transition-delay:.44s!important;}.d4{transition-delay:.58s!important;}.d5{transition-delay:.72s!important;}
+
+/* ══════════════════════════════
+   SLIDE 0 — ТИТУЛ
+══════════════════════════════ */
+#s0 .ghost{
+  position:absolute;right:-3vw;bottom:-8vh;
+  font-family:'Bebas Neue',sans-serif;font-size:clamp(180px,32vw,480px);
+  color:transparent;-webkit-text-stroke:1px rgba(200,255,0,.045);
+  line-height:1;pointer-events:none;letter-spacing:-8px;user-select:none;
+  animation:gdrift 10s ease-in-out infinite alternate;
+}
+@keyframes gdrift{from{transform:translateY(0) rotate(-1.5deg);}to{transform:translateY(-22px) rotate(0deg);}}
+#s0 .tagrow{
+  display:flex;gap:clamp(20px,3vw,48px);margin-top:clamp(20px,3.5vh,52px);
+  font-family:'Fragment Mono',monospace;font-size:clamp(12px,1.1vw,18px);
+  color:var(--dim);letter-spacing:2px;
+}
+#s0 .tagrow span{color:var(--acid);}
+
+/* ══════════════════════════════
+   SLIDE 1 — ЦИТАТА / ФУНДАМЕНТ
+══════════════════════════════ */
+#s1 .qbox{
+  border-left:3px solid var(--acid);
+  padding:clamp(18px,2.8vh,44px) clamp(24px,3.5vw,60px);
+  background:rgba(200,255,0,.025);
+  max-width:min(900px,80vw);margin-top:clamp(14px,2.2vh,32px);
+}
+#s1 .qt{font-style:italic;font-size:clamp(20px,2.8vw,44px);color:var(--paper);line-height:1.35;}
+#s1 .qa{font-family:'Fragment Mono',monospace;font-size:clamp(10px,.9vw,15px);color:var(--dim);margin-top:16px;letter-spacing:2px;}
+
+/* ══════════════════════════════
+   SLIDE 2 — GIT ≠ GITHUB
+══════════════════════════════ */
+#s2 .versus{
+  display:grid;grid-template-columns:1fr auto 1fr;
+  gap:clamp(16px,2.5vw,48px);align-items:stretch;
+  width:min(1020px,88vw);margin-top:clamp(16px,2.5vh,40px);
+}
+#s2 .vbox{
+  background:var(--card);border:1px solid var(--border);border-radius:16px;
+  padding:clamp(22px,3.5vh,52px) clamp(22px,3vw,44px);
+  position:relative;overflow:hidden;transition:border-color .3s;
+}
+#s2 .vbox:hover{border-color:var(--acid);}
+#s2 .vbox::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;}
+#s2 .vbox.git::before{background:var(--blood);}
+#s2 .vbox.hub::before{background:var(--acid);}
+#s2 .vtag{display:inline-block;font-family:'Fragment Mono',monospace;font-size:clamp(9px,.8vw,13px);padding:3px 14px;border-radius:20px;margin-bottom:clamp(10px,1.8vh,24px);letter-spacing:2px;}
+#s2 .vbox.git .vtag{background:rgba(255,45,85,.08);color:var(--blood);border:1px solid rgba(255,45,85,.2);}
+#s2 .vbox.hub .vtag{background:rgba(200,255,0,.07);color:var(--acid);border:1px solid rgba(200,255,0,.18);}
+#s2 .vname{font-family:'Bebas Neue',sans-serif;font-size:clamp(52px,8vw,120px);line-height:.9;}
+#s2 .vbox.git .vname{color:var(--blood);}
+#s2 .vbox.hub .vname{color:var(--acid);}
+#s2 .vemoji{font-size:clamp(32px,5vw,68px);margin:clamp(10px,1.8vh,24px) 0;}
+#s2 .vdesc{font-size:clamp(14px,1.6vw,24px);color:var(--chrome);line-height:1.5;font-weight:300;margin-bottom:clamp(8px,1.4vh,18px);}
+#s2 .vmeta{font-family:'Fragment Mono',monospace;font-size:clamp(11px,.95vw,16px);color:var(--dim);}
+#s2 .vsep{display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:clamp(44px,7vw,96px);color:#1a1a28;}
+
+/* ══════════════════════════════
+   SLIDE 3 — ТАЙМЛАЙН
+══════════════════════════════ */
+#s3 .tl{display:flex;flex-direction:column;width:min(920px,86vw);margin-top:clamp(12px,2vh,32px);}
+#s3 .tr{display:grid;grid-template-columns:clamp(76px,7.5vw,115px) 2px 1fr;gap:0 clamp(18px,2.8vw,44px);align-items:stretch;cursor:default;}
+#s3 .ty{font-family:'Bebas Neue',sans-serif;font-size:clamp(30px,3.8vw,58px);color:var(--dim);text-align:right;padding:clamp(7px,1.1vh,16px) 0;line-height:1;transition:color .3s;}
+#s3 .tr:hover .ty{color:var(--acid);}
+#s3 .tline{background:linear-gradient(to bottom,transparent,var(--border) 20%,var(--border) 80%,transparent);position:relative;}
+#s3 .tdot{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:10px;height:10px;border-radius:50%;background:var(--ink);border:2px solid var(--dim);transition:all .3s;}
+#s3 .tr:hover .tdot{background:var(--acid);border-color:var(--acid);box-shadow:0 0 22px var(--acid);}
+#s3 .tr.big .tdot{border-color:rgba(200,255,0,.35);}
+#s3 .tc{padding:clamp(7px,1.1vh,16px) 0;}
+#s3 .tt{font-size:clamp(15px,1.75vw,26px);font-weight:700;color:var(--chrome);margin-bottom:3px;transition:color .3s;}
+#s3 .tr:hover .tt{color:var(--paper);}
+#s3 .tr.big .tt{color:var(--acid);}
+#s3 .td{font-size:clamp(12px,1.15vw,18px);color:var(--dim);line-height:1.4;}
+
+/* ══════════════════════════════
+   SLIDE 4 — ЦИФРЫ
+══════════════════════════════ */
+#s4 .srow{
+  display:flex;gap:0;width:min(1100px,90vw);
+  border:1px solid var(--border);border-radius:16px;overflow:hidden;
+  margin-top:clamp(20px,3.5vh,52px);
+}
+#s4 .sc{
+  flex:1;padding:clamp(28px,4.5vh,68px) clamp(18px,2.5vw,40px);
+  border-right:1px solid var(--border);text-align:center;
+  position:relative;overflow:hidden;transition:background .35s;cursor:default;
+}
+#s4 .sc:last-child{border-right:none;}
+#s4 .sc:hover{background:rgba(200,255,0,.04);}
+#s4 .sc::after{content:'';position:absolute;bottom:0;left:0;right:0;height:0;background:linear-gradient(to top,rgba(200,255,0,.07),transparent);transition:height .4s;}
+#s4 .sc:hover::after{height:100%;}
+#s4 .sn{font-family:'Bebas Neue',sans-serif;font-size:clamp(56px,9vw,130px);color:var(--acid);line-height:1;display:block;text-shadow:0 0 40px rgba(200,255,0,.2);}
+#s4 .sx{font-family:'Fragment Mono',monospace;font-size:clamp(14px,2vw,30px);color:var(--acid);}
+#s4 .sl{font-size:clamp(12px,1.15vw,19px);color:var(--dim);margin-top:10px;}
+
+/* ══════════════════════════════
+   SLIDE 5 — КТО ИСПОЛЬЗУЕТ
+══════════════════════════════ */
+#s5 .wgrid{
+  display:grid;grid-template-columns:repeat(3,1fr);
+  gap:clamp(10px,1.2vw,20px);width:min(1020px,88vw);
+  margin-top:clamp(14px,2.2vh,36px);
+}
+#s5 .wc{
+  background:var(--card);border:1px solid var(--border);border-radius:12px;
+  padding:clamp(18px,2.8vh,44px) clamp(18px,2.5vw,36px);
+  transition:all .3s;cursor:default;
+}
+#s5 .wc:hover{border-color:var(--acid);transform:translateY(-4px);}
+#s5 .we{font-size:clamp(28px,4vw,58px);display:block;margin-bottom:clamp(8px,1.4vh,20px);}
+#s5 .wn{font-size:clamp(16px,1.8vw,28px);font-weight:700;color:var(--chrome);margin-bottom:5px;}
+#s5 .wx{font-size:clamp(12px,1.1vw,17px);color:var(--dim);line-height:1.5;}
+
+/* ══════════════════════════════
+   SLIDE 6 — РЕПОЗИТОРИИ
+══════════════════════════════ */
+#s6 .rlist{display:flex;flex-direction:column;width:min(980px,88vw);margin-top:clamp(14px,2.2vh,36px);}
+#s6 .rr{
+  display:flex;align-items:center;gap:clamp(14px,2.5vw,40px);
+  padding:clamp(13px,1.9vh,28px) 0;
+  border-bottom:1px solid rgba(255,255,255,.04);
+  transition:all .25s;cursor:default;
+}
+#s6 .rr:hover{padding-left:clamp(10px,1.5vw,24px);}
+#s6 .ri{font-family:'Bebas Neue',sans-serif;font-size:clamp(34px,5.5vw,80px);color:#141420;min-width:clamp(46px,6vw,90px);line-height:1;transition:color .3s;}
+#s6 .rr:hover .ri{color:rgba(200,255,0,.12);}
+#s6 .rinfo{flex:1;}
+#s6 .rn{font-family:'Fragment Mono',monospace;font-size:clamp(13px,1.55vw,23px);color:var(--chrome);font-weight:700;}
+#s6 .rd{font-size:clamp(11px,1.05vw,17px);color:var(--dim);margin-top:4px;}
+#s6 .rright{text-align:right;flex-shrink:0;}
+#s6 .rs{font-family:'Bebas Neue',sans-serif;font-size:clamp(22px,3.2vw,46px);color:var(--acid);line-height:1;}
+#s6 .sbar{width:clamp(60px,8vw,120px);height:3px;background:#1a1a28;border-radius:2px;overflow:hidden;margin-top:6px;}
+#s6 .sf{height:100%;border-radius:2px;}
+#s6 .ptag{font-family:'Fragment Mono',monospace;font-size:clamp(9px,.75vw,12px);color:var(--blood);border:1px solid rgba(255,45,85,.22);padding:2px 10px;border-radius:2px;margin-left:10px;vertical-align:middle;}
+
+/* ══════════════════════════════
+   SLIDE 7 — COPILOT
+══════════════════════════════ */
+#s7 .csplit{
+  display:grid;grid-template-columns:1fr 1fr;gap:clamp(20px,3.5vw,60px);
+  width:min(1020px,88vw);margin-top:clamp(14px,2.2vh,36px);
+}
+#s7 .cwin{background:#0a0a14;border:1px solid #1a1a28;border-radius:12px;overflow:hidden;}
+#s7 .cwbar{background:#0f0f1c;padding:clamp(10px,1.6vh,18px) clamp(14px,2vw,24px);display:flex;align-items:center;gap:7px;border-bottom:1px solid #1a1a28;}
+#s7 .cdot{width:11px;height:11px;border-radius:50%;}
+#s7 .cwtitle{font-family:'Fragment Mono',monospace;font-size:clamp(10px,.9vw,15px);color:#2e2e3e;margin-left:10px;}
+#s7 .cbody{padding:clamp(14px,2.5vh,32px) clamp(14px,2vw,26px);font-family:'Fragment Mono',monospace;font-size:clamp(12px,1.3vw,19px);line-height:2.1;}
+#s7 .ln{color:#1e1e2e;margin-right:14px;user-select:none;}
+#s7 .kw{color:#c792ea;}.fn{color:#82aaff;}.str{color:#c3e88d;}.cm{color:#2e2e40;font-style:italic;}
+#s7 .ai{background:rgba(200,255,0,.07);border-left:3px solid var(--acid);padding-left:8px;color:rgba(200,255,0,.7);display:block;}
+#s7 .ainote{font-size:clamp(10px,.85vw,14px);color:#222230;font-style:italic;margin-top:4px;padding-left:4px;}
+#s7 .cstats{display:flex;flex-direction:column;gap:clamp(14px,2.5vh,40px);justify-content:center;}
+#s7 .cst{border-left:3px solid var(--acid);padding-left:clamp(14px,2vw,30px);}
+#s7 .cn{font-family:'Bebas Neue',sans-serif;font-size:clamp(50px,8.5vw,116px);color:var(--acid);line-height:.9;text-shadow:0 0 30px rgba(200,255,0,.18);}
+#s7 .cl{font-size:clamp(12px,1.25vw,20px);color:var(--dim);margin-top:6px;}
+
+/* ══════════════════════════════
+   SLIDE 8 — МАРС
+══════════════════════════════ */
+#s8.cx{}
+#s8 .mstage{
+  width:min(980px,88vw);margin-top:clamp(14px,2.2vh,36px);
+  border:1px solid rgba(255,107,53,.18);border-radius:16px;overflow:hidden;
+  box-shadow:0 0 60px rgba(255,107,53,.07);
+}
+#s8 .msky{
+  background:linear-gradient(160deg,#180600,#2c0b00,#1c0700);
+  padding:clamp(24px,4vh,56px) clamp(24px,4vw,60px);
+  position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  min-height:clamp(160px,26vh,300px);
+}
+#s8 .mstars-wrap{position:absolute;inset:0;overflow:hidden;}
+#s8 .mplanet{
+  position:absolute;right:clamp(20px,5vw,80px);top:50%;transform:translateY(-50%);
+  width:clamp(58px,10vw,136px);height:clamp(58px,10vw,136px);border-radius:50%;
+  background:radial-gradient(circle at 35% 35%,#ff9f1c,var(--mars),#b03a00);
+  box-shadow:0 0 50px rgba(255,107,53,.28),inset -12px -12px 24px rgba(0,0,0,.5);
+}
+#s8 .mheli{font-size:clamp(38px,7vw,96px);animation:hov 2.2s ease-in-out infinite alternate;display:block;margin-bottom:12px;}
+@keyframes hov{from{transform:translateY(-6px);}to{transform:translateY(6px);}}
+#s8 .mhead{font-family:'Bebas Neue',sans-serif;font-size:clamp(26px,4.5vw,62px);color:var(--mars);line-height:1;margin-bottom:12px;}
+#s8 .mbadge{
+  display:inline-flex;align-items:center;gap:10px;
+  background:rgba(255,107,53,.1);border:1px solid rgba(255,107,53,.28);
+  border-radius:8px;padding:clamp(8px,1.4vh,18px) clamp(14px,2.5vw,36px);
+  font-family:'Fragment Mono',monospace;font-size:clamp(12px,1.3vw,20px);color:#ff9f1c;
+  animation:mglow 2s ease infinite alternate;
+}
+@keyframes mglow{from{box-shadow:none;}to{box-shadow:0 0 24px rgba(255,107,53,.2);}}
+#s8 .mground{background:#110600;display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background-color:rgba(255,107,53,.07);}
+#s8 .mg{background:#0e0500;padding:clamp(14px,2.5vh,38px) clamp(14px,2.5vw,38px);text-align:center;}
+#s8 .mgn{font-family:'Bebas Neue',sans-serif;font-size:clamp(38px,6vw,88px);color:var(--mars);line-height:1;text-shadow:0 0 20px rgba(255,107,53,.25);}
+#s8 .mgl{font-size:clamp(11px,1.05vw,17px);color:rgba(255,107,53,.4);margin-top:6px;}
+
+/* ══════════════════════════════
+   SLIDE 9 — ФАКТЫ
+══════════════════════════════ */
+#s9 .fgrid{
+  display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:1fr 1fr;
+  gap:clamp(8px,1vw,16px);background:var(--border);border-radius:14px;overflow:hidden;
+  width:min(1020px,88vw);margin-top:clamp(14px,2.2vh,32px);
+}
+#s9 .fc{background:var(--ink);padding:clamp(16px,2.8vh,42px) clamp(16px,2.5vw,34px);position:relative;overflow:hidden;transition:background .3s;cursor:default;}
+#s9 .fc:hover{background:#0c0c16;}
+#s9 .fc.wide{grid-column:span 2;}
+#s9 .ficon{font-size:clamp(22px,3.5vw,50px);margin-bottom:clamp(8px,1.4vh,18px);display:block;}
+#s9 .ftitle{font-size:clamp(15px,1.75vw,26px);font-weight:700;color:var(--chrome);margin-bottom:clamp(5px,1vh,12px);}
+#s9 .fbody{font-size:clamp(12px,1.1vw,18px);color:var(--dim);line-height:1.65;}
+#s9 .fghost{position:absolute;bottom:6px;right:12px;font-family:'Bebas Neue',sans-serif;font-size:clamp(36px,7vw,100px);color:#0d0d18;line-height:1;}
+#s9 .fc.red{background:#100600;}
+#s9 .fc.red .ftitle{color:var(--blood);}
+
+/* ══════════════════════════════
+   SLIDE 11 — ФИНАЛ
+══════════════════════════════ */
+#s11 .final{font-family:'Bebas Neue',sans-serif;font-size:clamp(68px,13vw,190px);line-height:.85;letter-spacing:-2px;color:var(--paper);margin-bottom:clamp(18px,3.5vh,56px);}
+#s11 .final .f2{color:var(--acid);}
+#s11 .fsub{font-size:clamp(16px,2vw,30px);color:var(--chrome);max-width:min(680px,66vw);line-height:1.5;font-weight:300;}
+#s11 .links{display:flex;gap:clamp(8px,1.2vw,20px);flex-wrap:wrap;justify-content:center;margin-top:clamp(18px,3.5vh,52px);}
+#s11 .lnk{font-family:'Fragment Mono',monospace;font-size:clamp(11px,1.1vw,18px);border:1px solid var(--border);padding:clamp(8px,1.4vh,18px) clamp(16px,2.5vw,36px);border-radius:4px;color:var(--dim);transition:all .3s;cursor:default;background:rgba(15,15,24,.8);}
+#s11 .lnk:hover{border-color:var(--acid);color:var(--acid);}
+#s12 .bstrip{position:absolute;bottom:0;left:0;right:0;height:4px;background:linear-gradient(90deg,var(--blood),var(--acid),var(--acid2),var(--acid));}
+</style>
+</head>
+<body>
+<div id="cur"></div>
+<div id="cur-trail"></div>
+<canvas id="bg"></canvas>
+<div class="grain"></div>
+<div class="flash" id="fl"></div>
+<div id="bar-top"></div>
+<div id="bar-bot" style="width:8.33%"></div>
+<div id="snum">01 / 13</div>
+<div class="nav"><span class="nb" onclick="prev()">← НАЗАД</span><span class="nb" onclick="next()">ДАЛЕЕ →</span></div>
+
+<div class="deck">
+
+<!-- ══ 0 — ТИТУЛ ══ -->
+<div class="slide active" id="s0">
+  <div class="ghost">GH</div>
+  <div class="eyebrow r d0">Код — это культура · 2005–2024</div>
+  <div class="G r d1">
+    <div>КОД —</div>
+    <div><span class="o">ЭТО</span></div>
+    <div><span class="a">КУЛЬТУРА</span></div>
+  </div>
+  <div class="rule r d2"></div>
+  <div class="body r d3">Если выключить GitHub — остановятся банки,<br>сломаются приложения, отменятся запуски ракет</div>
+  <div class="tagrow r d4">
+    <div><span>100M</span> разработчиков</div>
+    <div><span>420M</span> репозиториев</div>
+    <div><span>$7.5B</span> стоимость</div>
+  </div>
+</div>
+
+<!-- ══ 1 — ФУНДАМЕНТ ══ -->
+<div class="slide" id="s1">
+  <div class="eyebrow r d0">Почему это важно</div>
+  <div class="G r d1" style="font-size:clamp(60px,10vw,148px);">
+    <div>ФУНДА</div><div><span class="a">МЕНТ</span></div>
+  </div>
+  <div class="qbox r d2">
+    <div class="qt">«GitHub — это не сайт для программистов.<br>Это инфраструктура современного мира.»</div>
+    <div class="qa">— БРАУЗЕР, ТЕЛЕФОН, БАНК — ВСЁЭТО СОЗДАЁТСЯ И ХРАНИТСЯ ЗДЕСЬ</div>
+  </div>
+  <div class="body r d3" style="margin-top:clamp(10px,1.8vh,24px);">
+    Браузер, которым ты открыл это слайд. Приложение на твоём телефоне.<br>
+    Банковская система. Всё это написано на GitHub.
+  </div>
+</div>
+
+<!-- ══ 2 — GIT ≠ GITHUB ══ -->
+<div class="slide cx" id="s2">
+  <div class="eyebrow cx r d0">Базовые понятия</div>
+  <div class="G r d1" style="font-size:clamp(46px,8vw,118px);">
+    GIT <span class="d">≠</span> <span class="a">GITHUB</span>
+  </div>
+  <div class="versus r d2">
+    <div class="vbox git">
+      <div class="vtag">локальный инструмент</div>
+      <div class="vname">GIT</div>
+      <div class="vemoji">⏱️</div>
+      <div class="vdesc">Машина времени для файлов. Помнит каждое изменение. Живёт на твоём компьютере.</div>
+      <div class="vmeta">= бесконечный Ctrl+Z</div>
+    </div>
+    <div class="vsep">≠</div>
+    <div class="vbox hub">
+      <div class="vtag">облачная платформа</div>
+      <div class="vname">GITHUB</div>
+      <div class="vemoji">🌐</div>
+      <div class="vdesc">Instagram для программистов. Вместо фото — код. Вместо лайков — ⭐. Вместо репостов — Fork.</div>
+      <div class="vmeta">= соцсеть для кода</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 3 — ИСТОРИЯ ══ -->
+<div class="slide" id="s3">
+  <div class="eyebrow r d0">Хронология</div>
+  <div class="G r d1" style="font-size:clamp(48px,9vw,130px);">
+    <div>ИСТОРИЯ</div><div><span class="a">ПЛАТФОРМЫ</span></div>
+  </div>
+  <div class="tl r d2">
+    <div class="tr"><div class="ty">2005</div><div class="tline"><div class="tdot"></div></div><div class="tc"><div class="tt">Git создан Линусом Торвальдсом</div><div class="td">За 14 дней — потому что разозлился. Ответ на отзыв лицензии BitKeeper.</div></div></div>
+    <div class="tr"><div class="ty">2007</div><div class="tline"><div class="tdot"></div></div><div class="tc"><div class="tt">Идея в спортбаре Сан-Франциско</div><div class="td">Том и Крис: «А давай сделаем Facebook для программистов?»</div></div></div>
+    <div class="tr big"><div class="ty">2008</div><div class="tline"><div class="tdot"></div></div><div class="tc"><div class="tt">✦ Публичный запуск — 10 апреля</div><div class="td">Ruby on Rails. Тысячи регистраций в первый день. Первый коммит — 1 апреля.</div></div></div>
+    <div class="tr"><div class="ty">2012</div><div class="tline"><div class="tdot"></div></div><div class="tc"><div class="tt">$100M · 1 миллион разработчиков</div><div class="td">Andreessen Horowitz. GitHub — крупнейший Git-хостинг мира.</div></div></div>
+    <div class="tr big"><div class="ty">2018</div><div class="tline"><div class="tdot"></div></div><div class="tc"><div class="tt">✦ Microsoft покупает за $7.5 млрд</div><div class="td">Крупнейшая сделка в мире ПО. Все боялись закрытия — но стало только лучше.</div></div></div>
+    <div class="tr big"><div class="ty">2023</div><div class="tline"><div class="tdot"></div></div><div class="tc"><div class="tt">✦ 100 миллионов разработчиков</div><div class="td">Крупнейшая платформа разработчиков в истории человечества.</div></div></div>
+  </div>
+</div>
+
+<!-- ══ 4 — ЦИФРЫ ══ -->
+<div class="slide cx" id="s4">
+  <div class="eyebrow cx r d0">Масштаб · 2024</div>
+  <div class="G r d1" style="font-size:clamp(54px,10vw,140px);">В <span class="a">ЦИФРАХ</span></div>
+  <div class="srow r d2">
+    <div class="sc"><span class="sn" data-target="100">0</span><span class="sx">M+</span><div class="sl">разработчиков</div></div>
+    <div class="sc"><span class="sn" data-target="420">0</span><span class="sx">M+</span><div class="sl">репозиториев</div></div>
+    <div class="sc"><span class="sn" data-target="90">0</span><span class="sx">%</span><div class="sl">Fortune 100</div></div>
+    <div class="sc"><span class="sn" data-target="7">0</span><span class="sx">.5B$</span><div class="sl">цена сделки</div></div>
+  </div>
+</div>
+
+<!-- ══ 5 — КТО ИСПОЛЬЗУЕТ ══ -->
+<div class="slide" id="s5">
+  <div class="eyebrow r d0">Аудитория</div>
+  <div class="G r d1" style="font-size:clamp(48px,9vw,130px);">
+    <div>КТО</div><div><span class="a">ИСПОЛЬЗУЕТ</span></div>
+  </div>
+  <div class="wgrid r d2">
+    <div class="wc"><div class="we">🧑‍💻</div><div class="wn">Разработчики</div><div class="wx">100M+ — портфолио, пет-проекты, open-source</div></div>
+    <div class="wc"><div class="we">🏢</div><div class="wn">Корпорации</div><div class="wx">Google, Apple, Meta, Netflix, Microsoft</div></div>
+    <div class="wc"><div class="we">🎓</div><div class="wn">Студенты</div><div class="wx">Учёба + GitHub Student Pack бесплатно</div></div>
+    <div class="wc"><div class="we">🚀</div><div class="wn">NASA / CERN</div><div class="wx">Открытая наука — код летит на Марс</div></div>
+    <div class="wc"><div class="we">🏛️</div><div class="wn">Государства</div><div class="wx">Правительства публикуют открытый код</div></div>
+    <div class="wc"><div class="we">✍️</div><div class="wn">Все остальные</div><div class="wx">Писатели, дизайнеры, учёные, активисты</div></div>
+  </div>
+</div>
+
+<!-- ══ 6 — РЕПОЗИТОРИИ ══ -->
+<div class="slide" id="s6">
+  <div class="eyebrow r d0">Самые популярные</div>
+  <div class="G r d1" style="font-size:clamp(46px,8.5vw,120px);">
+    <div>ТОП</div><div><span class="a">РЕПОЗИТОРИЕВ</span></div>
+  </div>
+  <div class="rlist r d2">
+    <div class="rr"><div class="ri">01</div><div class="rinfo"><div class="rn">freeCodeCamp / freeCodeCamp</div><div class="rd">Бесплатное обучение программированию для всех</div></div><div class="rright"><div class="rs">400K+</div><div class="sbar"><div class="sf" style="width:100%;background:var(--acid)"></div></div></div></div>
+    <div class="rr"><div class="ri">02</div><div class="rinfo"><div class="rn">996icu / 996.ICU <span class="ptag">ПРОТЕСТ</span></div><div class="rd">Работа 9–9–6, 6 дней → прямо в реанимацию (ICU). GitHub как политплощадка</div></div><div class="rright"><div class="rs" style="color:var(--blood)">270K+</div><div class="sbar"><div class="sf" style="width:67%;background:var(--blood)"></div></div></div></div>
+    <div class="rr"><div class="ri">03</div><div class="rinfo"><div class="rn">torvalds / linux</div><div class="rd">Ядро Linux — то, с чего всё началось в 2005</div></div><div class="rright"><div class="rs">185K+</div><div class="sbar"><div class="sf" style="width:46%;background:var(--acid)"></div></div></div></div>
+    <div class="rr"><div class="ri">04</div><div class="rinfo"><div class="rn">microsoft / vscode</div><div class="rd">VS Code — самый популярный редактор кода в мире</div></div><div class="rright"><div class="rs">165K+</div><div class="sbar"><div class="sf" style="width:41%;background:var(--acid)"></div></div></div></div>
+    <div class="rr"><div class="ri">05</div><div class="rinfo"><div class="rn">tensorflow / tensorflow</div><div class="rd">Платформа машинного обучения от Google</div></div><div class="rright"><div class="rs">185K+</div><div class="sbar"><div class="sf" style="width:46%;background:var(--acid)"></div></div></div></div>
+  </div>
+</div>
+
+<!-- ══ 7 — COPILOT ══ -->
+<div class="slide" id="s7">
+  <div class="eyebrow r d0">Эпоха ИИ · 2021</div>
+  <div class="G r d1" style="font-size:clamp(48px,9vw,128px);">
+    <div>GITHUB</div><div><span class="a">COPILOT</span></div>
+  </div>
+  <div class="csplit r d2">
+    <div class="cwin">
+      <div class="cwbar">
+        <div class="cdot" style="background:#ff5f56"></div>
+        <div class="cdot" style="background:#ffbd2e"></div>
+        <div class="cdot" style="background:#27c93f"></div>
+        <span class="cwtitle">main.py — Copilot active</span>
+      </div>
+      <div class="cbody">
+        <div><span class="ln">1</span><span class="cm"># кнопка, убегающая от курсора</span></div>
+        <div><span class="ln">2</span><span class="kw">def</span> <span class="fn">run_button</span>(btn, mx, my):</div>
+        <span class="ai"><span class="ln">3</span>&nbsp;&nbsp;bx, by = btn.<span class="fn">get_pos</span>()</span>
+        <span class="ai"><span class="ln">4</span>&nbsp;&nbsp;dx, dy = bx-mx, by-my</span>
+        <span class="ai"><span class="ln">5</span>&nbsp;&nbsp;dist = (dx**<span class="str">2</span>+dy**<span class="str">2</span>)**<span class="str">.5</span></span>
+        <span class="ai"><span class="ln">6</span>&nbsp;&nbsp;<span class="kw">if</span> dist &lt; <span class="str">80</span>: btn.<span class="fn">move</span>(-dx*<span class="str">2</span>,-dy*<span class="str">2</span>)</span>
+        <div class="ainote">▲ сгенерировано за 1 секунду по комментарию</div>
+      </div>
+    </div>
+    <div class="cstats">
+      <div class="cst"><div class="cn">55%</div><div class="cl">задач выполняются быстрее</div></div>
+      <div class="cst"><div class="cn">40%</div><div class="cl">нового кода пишет ИИ (2026)</div></div>
+      <div class="cst"><div class="cn">40+</div><div class="cl">языков программирования</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 8 — МАРС ══ -->
+<div class="slide cx" id="s8">
+  <div class="eyebrow cx r d0" style="color:var(--mars);">Код на Марсе · NASA · 2021</div>
+  <div class="G r d1" style="font-size:clamp(42px,8.5vw,118px);color:var(--mars);">
+    <div>КОД</div><div><span style="-webkit-text-stroke:1px var(--mars);color:transparent;">ДОЛЕТЕЛ</span></div><div>ДО МАРСА</div>
+  </div>
+  <div class="mstage r d2">
+    <div class="msky">
+      <div class="mstars-wrap" id="mstars"></div>
+      <div class="mplanet"></div>
+      <span class="mheli">🚁</span>
+      <div class="mhead">NASA INGENUITY · ПЕРВЫЙ ПОЛЁТ НА ДРУГОЙ ПЛАНЕТЕ</div>
+      <div class="mbadge">🏆 &nbsp;Mars 2020 Helicopter Contributor</div>
+    </div>
+    <div class="mground">
+      <div class="mg"><div class="mgn">12K</div><div class="mgl">разработчиков получили ачивку</div></div>
+      <div class="mg"><div class="mgn">~18</div><div class="mgl">open source проектов с GitHub</div></div>
+      <div class="mg"><div class="mgn">0</div><div class="mgl">из них знали, что код улетит на Марс</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 9 — ФАКТЫ ══ -->
+<div class="slide" id="s9">
+  <div class="eyebrow r d0">Взрыв мозга</div>
+  <div class="G r d1" style="font-size:clamp(48px,9vw,128px);">
+    <div>ИНТЕРЕСНЫЕ</div><div><span class="a">ФАКТЫ</span></div>
+  </div>
+  <div class="fgrid r d2">
+    <div class="fc wide">
+      <span class="ficon">🧊</span>
+      <div class="ftitle">Arctic Code Vault — код в вечной мерзлоте</div>
+      <div class="fbody">GitHub закопал снимок всего публичного кода (Linux, Android, миллионы проектов) в угольной шахте Шпицбергена. 250 метров глубины. Рассчитано на 1000 лет. Для будущих цивилизаций.</div>
+      <div class="fghost">1K</div>
+    </div>
+    <div class="fc red">
+      <span class="ficon">💀</span>
+      <div class="ftitle">11 строк сломали интернет</div>
+      <div class="fbody">В 2016 разработчик обиделся и удалил left-pad. Facebook и Netflix перестали работать. GitHub вручную восстановил код.</div>
+      <div class="fghost">11</div>
+    </div>
+    <div class="fc">
+      <span class="ficon">🐙</span>
+      <div class="ftitle">Логотип за $5</div>
+      <div class="fbody">Octocat — осьминог-кошка — куплен как стоковый рисунок за $5. Один из самых узнаваемых IT-символов.</div>
+    </div>
+    <div class="fc">
+      <span class="ficon">🐣</span>
+      <div class="ftitle">Первый коммит — 1 апреля</div>
+      <div class="fbody">Первый коммит в истории GitHub — 1 апреля 2008 года. Случайность? До сих пор неизвестно.</div>
+    </div>
+    <div class="fc">
+      <span class="ficon">🌏</span>
+      <div class="ftitle">Санкции</div>
+      <div class="fbody">Иран, Северная Корея, Крым теряли доступ. GitHub лоббировал исключения у Минфина США.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 10 — GITHUB PAGES ══ -->
+<div class="slide cx" id="s10">
+  <div class="eyebrow cx r d0">Мета-момент</div>
+  <div class="G r d1" style="font-size:clamp(44px,8.5vw,118px);">
+    <span class="a">ЭТА</span> ПРЕЗЕНТАЦИЯ
+  </div>
+  <div class="r d2" style="margin-top:clamp(16px,3vh,44px);width:min(860px,86vw);">
+    <div style="border:1px solid rgba(200,255,0,.2);border-radius:14px;overflow:hidden;box-shadow:0 0 60px rgba(200,255,0,.07);">
+      <!-- browser bar -->
+      <div style="background:#0d0d18;border-bottom:1px solid rgba(200,255,0,.1);padding:clamp(10px,1.6vh,18px) clamp(16px,2.5vw,28px);display:flex;align-items:center;gap:10px;">
+        <div style="width:12px;height:12px;border-radius:50%;background:#ff5f56;flex-shrink:0;"></div>
+        <div style="width:12px;height:12px;border-radius:50%;background:#ffbd2e;flex-shrink:0;"></div>
+        <div style="width:12px;height:12px;border-radius:50%;background:#27c93f;flex-shrink:0;"></div>
+        <div style="flex:1;background:#11111c;border:1px solid #1e1e2e;border-radius:6px;padding:7px 18px;font-family:'Fragment Mono',monospace;font-size:clamp(11px,1.2vw,18px);color:var(--acid);text-align:left;">orionz43.github.io/gh-presentation</div>
+        <div style="display:flex;align-items:center;gap:8px;font-family:'Fragment Mono',monospace;font-size:clamp(9px,.9vw,14px);color:var(--acid);border:1px solid rgba(200,255,0,.3);padding:5px 14px;border-radius:20px;flex-shrink:0;">
+          <div style="width:7px;height:7px;border-radius:50%;background:var(--acid);animation:lpulse 1.5s ease infinite;"></div>LIVE
+        </div>
+      </div>
+      <!-- body -->
+      <div style="background:#09090f;padding:clamp(24px,5vh,64px) clamp(28px,5vw,72px);display:flex;flex-direction:column;align-items:center;gap:clamp(16px,3vh,40px);">
+        <div style="display:flex;align-items:center;gap:clamp(24px,4vw,64px);justify-content:center;flex-wrap:wrap;">
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:clamp(28px,5.5vw,78px);line-height:.9;color:var(--paper);text-align:left;">
+            ХОСТИТСЯ НА<br><span style="color:var(--acid);">GITHUB PAGES</span><br>ПРЯМО СЕЙЧАС
+          </div>
+          <!-- QR code + label -->
+          <div style="display:flex;flex-direction:column;align-items:center;gap:clamp(10px,1.5vh,20px);">
+            <div style="background:#fff;border-radius:12px;padding:clamp(8px,1.2vw,16px);box-shadow:0 0 40px rgba(200,255,0,.2);">
+              <img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=https://orionz43.github.io/gh-presentation&bgcolor=ffffff&color=07070d&margin=2" width="clamp(120px,14vw,200px)" style="width:clamp(120px,14vw,200px);height:auto;display:block;border-radius:6px;" alt="QR" />
+            </div>
+            <div style="font-family:'Fragment Mono',monospace;font-size:clamp(10px,.95vw,15px);color:var(--acid);letter-spacing:1px;text-align:center;">
+              orionz43.github.io<br>/gh-presentation
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;gap:clamp(10px,2vw,28px);flex-wrap:wrap;justify-content:center;margin-top:clamp(8px,1.5vh,20px);">
+          <div style="display:flex;align-items:center;gap:clamp(8px,1.2vw,16px);font-family:'Fragment Mono',monospace;font-size:clamp(12px,1.3vw,20px);color:var(--chrome);background:var(--card);border:1px solid var(--border);padding:clamp(10px,1.8vh,22px) clamp(14px,2.2vw,30px);border-radius:8px;transition:border-color .3s;" onmouseenter="this.style.borderColor='var(--acid)'" onmouseleave="this.style.borderColor='var(--border)'">
+            <span style="color:var(--acid);">01</span> Загрузил HTML файл
+          </div>
+          <div style="display:flex;align-items:center;font-family:'Fragment Mono',monospace;font-size:clamp(14px,2vw,28px);color:#1e1e28;">→</div>
+          <div style="display:flex;align-items:center;gap:clamp(8px,1.2vw,16px);font-family:'Fragment Mono',monospace;font-size:clamp(12px,1.3vw,20px);color:var(--chrome);background:var(--card);border:1px solid var(--border);padding:clamp(10px,1.8vh,22px) clamp(14px,2.2vw,30px);border-radius:8px;transition:border-color .3s;" onmouseenter="this.style.borderColor='var(--acid)'" onmouseleave="this.style.borderColor='var(--border)'">
+            <span style="color:var(--acid);">02</span> Включил Pages
+          </div>
+          <div style="display:flex;align-items:center;font-family:'Fragment Mono',monospace;font-size:clamp(14px,2vw,28px);color:#1e1e28;">→</div>
+          <div style="display:flex;align-items:center;gap:clamp(8px,1.2vw,16px);font-family:'Fragment Mono',monospace;font-size:clamp(12px,1.3vw,20px);color:var(--chrome);background:var(--card);border:1px solid var(--border);padding:clamp(10px,1.8vh,22px) clamp(14px,2.2vw,30px);border-radius:8px;transition:border-color .3s;" onmouseenter="this.style.borderColor='var(--acid)'" onmouseleave="this.style.borderColor='var(--border)'">
+            <span style="color:var(--acid);">03</span> Готовый сайт 🎉
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 11 — ДЕМО ══ -->
+<div class="slide cx" id="s11">
+  <div class="eyebrow cx r d0">Живая демонстрация</div>
+  <div class="G r d1" style="font-size:clamp(52px,10vw,150px);">
+    ДЕМО <span class="a">ВРЕМЯ</span>
+  </div>
+</div>
+
+<!-- ══ 12 — ФИНАЛ ══ -->
+<div class="slide cx" id="s11">
+  <div class="final r d0">
+    <div>КОД —</div><div class="f2">ЭТО</div><div>КУЛЬТУРА</div>
+  </div>
+  <div class="fsub r d1">GitHub сделал для программирования то же,<br>что YouTube для видео — открыл его для всех.</div>
+  <div class="small r d2" style="margin-top:clamp(8px,1.5vh,22px);max-width:min(640px,62vw);">Любой может зайти, изучить код лучших инженеров планеты — и его строчки тоже могут однажды полететь в космос.</div>
+  <div class="links r d3">
+    <div class="lnk">github.com</div>
+    <div class="lnk">git-scm.com</div>
+    <div class="lnk">octoverse.github.com</div>
+    <div class="lnk">copilot.github.com</div>
+  </div>
+  <div class="bstrip"></div>
+</div>
+
+</div><!-- /deck -->
+
+<script>
+// ── CURSOR ──
+const cur=document.getElementById('cur'),trail=document.getElementById('cur-trail');
+let mx=0,my=0,rx=0,ry=0;
+document.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;cur.style.left=mx+'px';cur.style.top=my+'px';});
+(function loop(){rx+=(mx-rx)*.09;ry+=(my-ry)*.09;trail.style.left=rx+'px';trail.style.top=ry+'px';requestAnimationFrame(loop);})();
+
+// ── PARTICLES ──
+const cv=document.getElementById('bg'),cx2=cv.getContext('2d');
+let W,H,pts=[];
+function rsz(){W=cv.width=innerWidth;H=cv.height=innerHeight;}rsz();
+addEventListener('resize',()=>{rsz();ip();});
+class Pt{constructor(){this.re();}re(){this.x=Math.random()*W;this.y=Math.random()*H;this.vx=(Math.random()-.5)*.2;this.vy=(Math.random()-.5)*.2;this.r=Math.random()*.85+.2;this.a=Math.random()*.28+.04;this.col=Math.random()>.9?'200,255,0':Math.random()>.8?'0,255,200':'255,255,255';}up(){this.x+=this.vx;this.y+=this.vy;if(this.x<-1||this.x>W+1||this.y<-1||this.y>H+1)this.re();}dr(){cx2.beginPath();cx2.arc(this.x,this.y,this.r,0,Math.PI*2);cx2.fillStyle=`rgba(${this.col},${this.a})`;cx2.fill();}}
+function ip(){pts=[];for(let i=0;i<Math.floor(W*H/7200);i++)pts.push(new Pt());}ip();
+(function fl(){cx2.clearRect(0,0,W,H);pts.forEach(p=>{p.up();p.dr();});const D=108;for(let i=0;i<pts.length;i++)for(let j=i+1;j<pts.length;j++){const dx=pts[i].x-pts[j].x,dy=pts[i].y-pts[j].y,d=Math.sqrt(dx*dx+dy*dy);if(d<D){cx2.beginPath();cx2.moveTo(pts[i].x,pts[i].y);cx2.lineTo(pts[j].x,pts[j].y);cx2.strokeStyle=`rgba(200,255,0,${.03*(1-d/D)})`;cx2.lineWidth=.35;cx2.stroke();}}requestAnimationFrame(fl);})();
+
+// ── MARS STARS ──
+const ms=document.getElementById('mstars');
+if(ms){for(let i=0;i<80;i++){const s=document.createElement('div');s.style.cssText=`position:absolute;width:${Math.random()*2.5+.4}px;height:${Math.random()*2.5+.4}px;background:rgba(255,255,255,${Math.random()*.65+.1});border-radius:50%;left:${Math.random()*100}%;top:${Math.random()*100}%;`;ms.appendChild(s);}}
+
+// ── SLIDES ──
+const slides=document.querySelectorAll('.slide');
+const fl2=document.getElementById('fl');
+const bot=document.getElementById('bar-bot');
+const snumEl=document.getElementById('snum');
+const TOTAL=slides.length;
+let cur_s=0;
+
+function goTo(n){
+  if(n===cur_s||n<0||n>=TOTAL)return;
+  fl2.classList.add('on');setTimeout(()=>fl2.classList.remove('on'),90);
+  slides[cur_s].classList.remove('active');slides[cur_s].classList.add('out');
+  setTimeout(()=>slides[cur_s].classList.remove('out'),500);
+  cur_s=n;
+  slides[cur_s].classList.add('active');
+  snumEl.textContent=String(cur_s+1).padStart(2,'0')+' / '+String(TOTAL).padStart(2,'0');
+  bot.style.width=((cur_s+1)/TOTAL*100)+'%';
+  if(cur_s===4)setTimeout(animCounts,350);
+}
+function next(){goTo(cur_s+1);}
+function prev(){goTo(cur_s-1);}
+
+document.addEventListener('keydown',e=>{
+  if(['ArrowRight','ArrowDown',' '].includes(e.key)){e.preventDefault();next();}
+  if(['ArrowLeft','ArrowUp'].includes(e.key)){e.preventDefault();prev();}
+});
+let tx=0;
+document.addEventListener('touchstart',e=>tx=e.touches[0].clientX);
+document.addEventListener('touchend',e=>{const d=e.changedTouches[0].clientX-tx;if(Math.abs(d)>50)d<0?next():prev();});
+let lw=0;
+document.addEventListener('wheel',e=>{const n=Date.now();if(n-lw<750)return;lw=n;e.deltaY>0?next():prev();},{passive:true});
+
+// ── COUNTERS ──
+function animCounts(){
+  document.querySelectorAll('.sn[data-target]').forEach(el=>{
+    const t=parseInt(el.dataset.target);let s=0;const d=1100;
+    const f=ts=>{if(!s)s=ts;const p=Math.min((ts-s)/d,1),e=1-Math.pow(1-p,3);el.textContent=Math.floor(e*t);if(p<1)requestAnimationFrame(f);else el.textContent=t;};
+    requestAnimationFrame(f);
+  });
+}
+
+// ── PARALLAX ──
+document.addEventListener('mousemove',e=>{
+  const rx=(e.clientX/innerWidth-.5)*2,ry=(e.clientY/innerHeight-.5)*2;
+  const g=document.querySelector('#s0 .ghost');if(g)g.style.transform=`translateY(${ry*-18}px) translateX(${rx*-11}px) rotate(-1.5deg)`;
+  const m=document.querySelector('#s0 .G');if(m&&cur_s===0)m.style.transform=`translateX(${rx*4}px) translateY(${ry*2}px)`;
+});
+</script>
+</body>
+</html>
